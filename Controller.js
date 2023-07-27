@@ -1,27 +1,43 @@
+const DISCONNECTION_TIMEOUT = 10000;
+
 class Player {
-  constructor(name) {
-    this.name = name;
+  constructor(uid, socket, room, isAdmin) {
+    this.uid = uid;
+    this.socket = socket;
+    this.room = room; // ref to the room
     this.text = null;
     this.reading = null;
-    this.state = "socket pending";
-    this.socket = null;
+    this.state = "ready";
+    this.isAdmin = isAdmin;
+
+    console.log(
+      `${isAdmin ? "Admin " + uid : uid} is connected to room ${room.pin}`
+    );
+
+    this.registerSocketMethods();
   }
 
-  registerSocket(socket) {
-    this.socket = socket;
-    this.state = "ready";
-    console.log(this.name + " is ready");
-
-    socket.on("disconnect", () => {
-      console.log(this.name + " disconnecte");
+  registerSocketMethods() {
+    this.socket.on("disconnect", () => {
+      if (this.room.state === "lobby2") {
+        console.log(`${this.uid} disconnected`);
+        delete this.room.players[this.uid];
+      } else if (this.room.state === "lobby") {
+        this.room.playerDisconnected(this.uid);
+      }
     });
+  }
+
+  emit(eventName, ...data) {
+    this.socket.emit(eventName, ...data);
   }
 }
 
 class GameRoom {
-  constructor(pin, admin, pref) {
+  constructor(pin, admin, roomSocket, pref) {
     this.admin = admin;
     this.pin = pin;
+    this.roomSocket = roomSocket;
     this.state = "lobby";
     this.activePlayer = null;
     this.currentRound = 0;
@@ -29,17 +45,24 @@ class GameRoom {
 
     this.players = {};
 
-    this.registerPlayer(admin); // Registering the admin as one of the room players
     console.log("created room " + pin + ", admin is " + admin);
   }
 
-  registerPlayer(name) {
-    this.players[name] = new Player(name);
+  connectPlayer(uid, socket) {
+    socket.join(this.pin);
+    this.players[uid] = new Player(uid, socket, this, uid === this.admin);
+    console.log("PLAYERS: " + Object.keys(this.players));
   }
 
-  registerSocket(uid, socket) {
-    this.players[uid].registerSocket(socket);
-    socket.emit("test", "test");
+  playerDisconnected(uid) {
+    this.state = "waiting";
+    // SEND BROADCAST MESSAGE OF ROOMS IS WAITING
+    this.roomSocket.emit("freeze", `${uid} disconnected`)
+    setTimeout(() => {
+      // SEND BROADCAST MESSAGE OF REDIRECTION HOME
+      console.log("deleting room"); 
+      delete this;
+    }, DISCONNECTION_TIMEOUT);
   }
 }
 
@@ -49,17 +72,22 @@ class Controller {
     this.rooms = {}; // Should be empty, just for debug
   }
 
-  connectPlayer(pin, player) {
-    console.log(this.rooms);
+  validateLogin(pin, uid) {
+    // Called by the express upon login request,
+    // verifies that the inputs are valid - name is not taken and room exists
+
     if (!(pin in this.rooms)) {
       throw new Error("room doesn't exist");
     }
 
-    if (player in this.rooms[pin].players) {
+    if (uid in this.rooms[pin].players) {
       throw new Error("name already taken");
     }
+  }
 
-    this.rooms[pin].registerPlayer(player);
+  connectPlayer(pin, uid, socket) {
+    this.rooms[pin].connectPlayer(uid, socket);
+    socket.join(pin);
   }
 
   generatePin() {
@@ -70,18 +98,14 @@ class Controller {
     return newPin;
   }
 
-  createRoom(player, rounds, selfRead, readerVisible) {
+  createRoom(player, rounds, selfRead, readerVisible, socketServer) {
     const pin = this.generatePin();
-    this.rooms[pin] = new GameRoom(pin, player, {
+    this.rooms[pin] = new GameRoom(pin, player, socketServer.to(pin), {
       rounds,
       selfRead,
       readerVisible,
     });
     return pin;
-  }
-
-  registerSocket(uid, pin, socket) {
-    this.rooms[pin].registerSocket(uid, socket);
   }
 }
 

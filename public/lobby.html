@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>lobby</title>
+  </head>
+  <body>
+    <h1>LOBBY</h1>
+    <script
+      src="https://cdn.socket.io/4.6.0/socket.io.min.js"
+      integrity="sha384-c79GN5VsunZvi+Q/WObgk2in0CbZsHnjEqvFxC5DxHn9lTfNce2WW6h2pH6u/kF+"
+      crossorigin="anonymous"
+    ></script>
+    <script type="text/javascript">
+      const socket = io();
+
+      socket.on("connect", () => {
+        console.log("CONNECTED ", socket.id);
+      });
+
+      socket.on("test", () => {
+        console.log("test");
+      });
+
+      socket.on("freeze", (data) => {
+        console.log('FREEZE' + data);
+      })
+
+      socket.on("redirect", (destination) => {
+        window.location.href = destination;
+      });
+    </script>
+  </body>
+</html>
