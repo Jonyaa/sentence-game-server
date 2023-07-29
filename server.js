@@ -1,4 +1,4 @@
-const app = require("express")();
+const express = require("express");
 
 const http = require("http");
 const { Server } = require("socket.io");
@@ -11,6 +11,8 @@ const cookieParse = require("cookie");
 
 const PORT = process.env.PORT || 8080;
 
+const app = express();
+
 const httpServer = http.createServer(app); // Initializing http server
 const io = new Server(httpServer); // Initializing WSS
 
@@ -18,6 +20,7 @@ const PIN = 1234;
 
 const controller = new Controller();
 
+app.use(express.static('public'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(multer.array());
@@ -40,7 +43,6 @@ app.get("/admin", (req, res) => {
 
 app.post("/connect", (req, res) => {
   const { pin, uid } = req.body;
-  console.log(uid);
   try {
     controller.validateLogin(pin, uid);
   } catch (error) {
@@ -91,7 +93,12 @@ io.on("connection", (socket) => {
     return;
   }
 
+  socket.on("disconnect", () => {
+    console.log("DISCON");
+  })
+
   controller.connectPlayer(pin, uid, socket);
+
 });
 
 httpServer.listen(PORT, function () {

@@ -4,9 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>lobby</title>
+    <link rel="stylesheet" href="lobby.css" />
   </head>
   <body>
-    <h1>LOBBY</h1>
+    <section id="lobby" class="active">
+      <h1>LOBBY <span id="pin"></span></h1>
+      <h2>players:</h2>
+      <ul id="playersList"></ul>
+
+      <button id="leave" onclick="leave()">leave</button>
+      <div id="admin" style="display: none">
+        <button onclick="start()">start</button>
+      </div>
+    </section>
+    <section id="game">
+      <textarea placeholder="your sentence"></textarea>
+      <button>submit</button>
+    </section>
     <script
       src="https://cdn.socket.io/4.6.0/socket.io.min.js"
       integrity="sha384-c79GN5VsunZvi+Q/WObgk2in0CbZsHnjEqvFxC5DxHn9lTfNce2WW6h2pH6u/kF+"
@@ -15,20 +29,65 @@
     <script type="text/javascript">
       const socket = io();
 
+      const leave = () => {
+        document.cookie =
+          "uid=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        document.cookie =
+          "pin=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        window.location.href = "/";
+      };
+
+      const start = () => {
+        socket.emit("start");
+      };
+
+      socket.on("starting", () => {
+        console.log("STARTING GAME IN 10 SECONDS");
+        setTimeout(() => {
+          document.getElementById("lobby").classList.remove("active");
+          document.getElementById("game").classList.add("active");
+        }, 10000);
+      });
+
       socket.on("connect", () => {
         console.log("CONNECTED ", socket.id);
       });
 
-      socket.on("test", () => {
-        console.log("test");
+      socket.on("reconnect", (data) => {
+        console.log(data);
+        if (data.state === "running") {
+          document.getElementById("lobby").classList.remove("active");
+          document.getElementById("game").classList.add("active");
+        }
       });
 
-      socket.on("freeze", (data) => {
-        console.log('FREEZE' + data);
-      })
+      console.log(document.cookie);
+
+      socket.on("admin", () => {
+        document.getElementById("admin").style.display = "block";
+      });
+
+      socket.on("waiting", (data) => {
+        console.log("WAITING" + data);
+      });
 
       socket.on("redirect", (destination) => {
         window.location.href = destination;
+      });
+
+      socket.on("destroy", leave);
+
+      socket.on("continue", () => {
+        console.log("CONTINUE GAME");
+      });
+
+      socket.on("players_update", (data) => {
+        document.getElementById("pin").innerText = data.pin;
+        const ul = document.getElementById("playersList");
+        ul.innerHTML = "";
+        for (const player of data.playersList) {
+          ul.innerHTML += `<li>${player}</li>`;
+        }
       });
     </script>
   </body>
