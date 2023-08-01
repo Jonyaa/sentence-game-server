@@ -59,15 +59,15 @@ app.post("/connect", (req, res) => {
 
 app.post("/create-room", (req, res) => {
   const name = req.body.uid;
-  const rounds = Number(req.body.rounds);
   const selfRead = req.body.selfRead === "on";
   const readerVisible = req.body.readerVisible === "on";
   let pin;
 
   try {
-    pin = controller.createRoom(name, rounds, selfRead, readerVisible, io);
+    pin = controller.createRoom(name, selfRead, readerVisible, io);
   } catch (error) {
     res.status(400).json(String(error));
+    return;
   }
 
   res.cookie("uid", name, { maxAge: 99999, httpOnly: true });
@@ -92,10 +92,6 @@ io.on("connection", (socket) => {
     socket.emit("redirect", "/");
     return;
   }
-
-  socket.on("disconnect", () => {
-    console.log("DISCON");
-  })
 
   controller.connectPlayer(pin, uid, socket);
 

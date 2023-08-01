@@ -1,13 +1,32 @@
 const DISCONNECTION_TIMEOUT = 10000;
 
+function shuffle(array) {
+  let currentIndex = array.length,
+    randomIndex;
+
+  while (currentIndex != 0) {
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex--;
+
+    [array[currentIndex], array[randomIndex]] = [
+      array[randomIndex],
+      array[currentIndex],
+    ];
+  }
+
+  return array;
+}
+
 class Player {
-  constructor(uid, socket, room, isAdmin) {
+  constructor(uid, socket, room, isAdmin, onInput) {
     this.uid = uid;
     this.socket = socket;
     this.room = room; // ref to the room
     this.gameData = null;
     this.state = "ready";
     this.isAdmin = isAdmin;
+    this.onInput = onInput;
+    this.sentence = null;
     this.disconnection_timeout = null;
 
     console.log(
@@ -21,10 +40,18 @@ class Player {
     this.socket.on("disconnect", () => {
       this.room.playerDisconnected(this.uid);
     });
+
+    this.socket.on("input", (inputStr) => {
+      this.sentence = inputStr;
+      this.onInput();
+    });
+
+    this.socket.on("next turn", this.room.nextTurn);
+
     if (this.isAdmin) {
       this.socket.on("start", () => {
         console.log(`starting room ${this.room.pin}`);
-        this.room.start();
+        this.room.startInputStage();
       });
     }
   };
@@ -43,15 +70,16 @@ class Player {
 }
 
 class GameRoom {
-  constructor(pin, admin, roomSocket, destroy, pref) {
+  constructor(pin, admin, roomSocket, destroy, selfRead, readerVisible) {
     this.admin = admin;
     this.pin = pin;
     this.roomSocket = roomSocket;
     this.destroy = destroy;
     this.state = "lobby";
+    this.turn = null;
     this.activePlayer = null;
-    this.currentRound = 0;
-    this.pref = pref;
+    this.selfRead = selfRead;
+    this.readerVisible = readerVisible;
 
     this.players = {};
     console.log("created room " + pin + ", admin is " + admin);
@@ -68,24 +96,21 @@ class GameRoom {
       this.players[uid].reconnect(socket);
     } else {
       // new user
-      this.players[uid] = new Player(uid, socket, this, uid === this.admin);
+      this.players[uid] = new Player(
+        uid,
+        socket,
+        this,
+        uid === this.admin,
+        this.playerInputted
+      );
       if (uid === this.admin) {
         socket.emit("admin");
       }
     }
-
     this.roomSocket.emit("players_update", {
       playersList: Object.keys(this.players),
       pin: this.pin,
     });
-  };
-
-  kickPlayer = (uid) => {
-    delete this.players[uid];
-    this.roomSocket.emit("players_update", {
-      playersList: Object.keys(this.players),
-    });
-    console.log(`kicked ${uid} from ${this.pin}`);
   };
 
   playerDisconnected = (uid) => {
@@ -110,26 +135,108 @@ class GameRoom {
         DISCONNECTION_TIMEOUT
       );
     }
+
+    this.roomSocket.emit("players_update", {
+      playersList: Object.keys(this.players),
+      pin: this.pin,
+    });
   };
 
-  start = () => {
+  kickPlayer = (uid) => {
+    delete this.players[uid];
+    this.roomSocket.emit("players_update", {
+      playersList: Object.keys(this.players),
+    });
+    console.log(`kicked ${uid} from ${this.pin}`);
+  };
+
+  produceGame = () => {
+    const playersArray = shuffle(Object.keys(this.players));
+    this.gameData = playersArray.map((uid, idx) => {
+      const writer = playersArray[(idx + 1) % playersArray.length];
+      return {
+        player: uid,
+        text: {
+          writer: writer,
+          body: this.players[writer].sentence,
+        },
+      };
+    });
+  };
+
+  startInputStage = () => {
+    const START_TIMEOUT = 1000;
+    this.roomSocket.emit("starting input soon", START_TIMEOUT);
     this.state = "running";
-    this.roomSocket.emit("starting");
+    setTimeout(() => {
+      this.roomSocket.emit("start input");
+    }, START_TIMEOUT);
+  };
+
+  playerInputted = () => {
+    let readyToStart = true;
+    for (const player in this.players) {
+      if (!this.players[player].sentence) {
+        readyToStart = false;
+        break;
+      }
+    }
+    if (readyToStart) {
+      console.log("all players inputted");
+      this.startGameStage();
+    }
+  };
+
+  startGameStage = () => {
+    const START_TIMEOUT = 1000;
+    this.produceGame();
+    this.roomSocket.emit("start game soon", {
+      time: START_TIMEOUT,
+      data: this.gameData,
+    });
+    setTimeout(() => {
+      this.turn = 0;
+      this.nextTurn();
+    }, START_TIMEOUT);
+  };
+
+  nextTurn = () => {
+    if (this.turn === Object.keys(this.players).length) {
+      this.endGame();
+    } else {
+      this.roomSocket.emit("next turn", this.turn);
+      this.turn++;
+    }
+  };
+
+  endGame = () => {
+    this.state = "ended";
+    this.roomSocket.emit("end game");
   };
 }
 
 class Controller {
   constructor() {
     console.log("Initialized controller");
-    this.rooms = {}; // Should be empty, just for debug
+    /** @private */ this.rooms = {};
   }
 
+  /**
+   * Verifies that the inputs are valid and player can connect.
+   * Called by the express upon login request is made.
+   * Throws exceptions if any problem occures.
+   * Doesn't do anything if all good.
+   *
+   * @param {number} pin The pin of the room.
+   * @param {string} uid The name of the client.
+   */
   validateLogin = (pin, uid) => {
-    // Called by the express upon login request,
-    // verifies that the inputs are valid - name is not taken and room exists
-
     if (!(pin in this.rooms)) {
       throw new Error("room doesn't exist");
+    }
+
+    if (this.rooms[pin].state != "lobby" && !(uid in this.rooms[pin].players)) {
+      throw new Error("room already started game");
     }
 
     if (
@@ -159,19 +266,15 @@ class Controller {
     delete this.rooms[pin];
   };
 
-  createRoom = (player, rounds, selfRead, readerVisible, socketServer) => {
-    // const pin = this.generatePin();
-    const pin = 1111;
+  createRoom = (player, selfRead, readerVisible, socketServer) => {
+    const pin = this.generatePin();
     this.rooms[pin] = new GameRoom(
       pin,
       player,
       socketServer.to(pin),
       this.destroyRoom,
-      {
-        rounds,
-        selfRead,
-        readerVisible,
-      }
+      selfRead,
+      readerVisible
     );
     return pin;
   };

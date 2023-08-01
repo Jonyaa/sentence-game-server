@@ -7,24 +7,26 @@
   </head>
   <body>
     <h1>CREATE ROOM</h1>
-    <form action="/create-room" method="post">
+    <form action="/create-room" method="post" onsubmit="login()">
       <label>
-        NAME: 
+        NAME:
         <input type="text" name="uid" id="uid" />
       </label>
       <label>
-        ROUNDS: 
-        <input type="rounds" name="rounds" />
-      </label>
-      <label>
-        SELF READING: 
+        SELF READING:
         <input type="checkbox" name="selfRead" />
       </label>
       <label>
-        READER VISIBLE: 
+        READER VISIBLE:
         <input type="checkbox" name="readerVisible" />
       </label>
-      <input type="submit" value="CREATE">
+      <input type="submit" value="CREATE" />
     </form>
+
+    <script type="text/javascript">
+      const login = () => {
+        localStorage.setItem("uid", document.getElementById("uid").value);
+      };
+    </script>
   </body>
 </html>

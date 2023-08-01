@@ -5,11 +5,17 @@
   </head>
   <body>
     fucking shit
-    <form action="/connect" method="post">
+    <form action="/connect" method="post" onsubmit="login()">
       <input type="text" name="uid" id="name" placeholder="name" />
       <input type="number" name="pin" id="pin" placeholder="pin" />
       <input type="submit" value="connect" />
     </form>
     <a href="/admin">create room</a>
+
+    <script type="text/javascript">
+      const login = () => {
+         localStorage.setItem("uid", document.getElementById("name").value);
+      }
+    </script>
   </body>
 </html>

@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="lobby.css" />
   </head>
   <body>
+    <div id="countdown"></div>
     <section id="lobby" class="active">
       <h1>LOBBY <span id="pin"></span></h1>
       <h2>players:</h2>
@@ -18,8 +19,8 @@
       </div>
     </section>
     <section id="game">
-      <textarea placeholder="your sentence"></textarea>
-      <button>submit</button>
+      <textarea id="input" placeholder="your sentence"></textarea>
+      <button onclick="submitInput()">submit</button>
     </section>
     <script
       src="https://cdn.socket.io/4.6.0/socket.io.min.js"
@@ -28,6 +29,7 @@
     ></script>
     <script type="text/javascript">
       const socket = io();
+      let gameData = null;
 
       const leave = () => {
         document.cookie =
@@ -37,58 +39,31 @@
         window.location.href = "/";
       };
 
-      const start = () => {
-        socket.emit("start");
+      const nextTurn = (turn) => {
+        const me = localStorage.getItem("uid");
+        if (me === gameData[turn].player) {
+          console.log("IT'S ME TURN!");
+        } else {
+          console.log(`IT'S ${gameData[turn].player} TURN`);
+        }
       };
 
-      socket.on("starting", () => {
-        console.log("STARTING GAME IN 10 SECONDS");
-        setTimeout(() => {
-          document.getElementById("lobby").classList.remove("active");
-          document.getElementById("game").classList.add("active");
-        }, 10000);
-      });
-
-      socket.on("connect", () => {
-        console.log("CONNECTED ", socket.id);
-      });
-
-      socket.on("reconnect", (data) => {
-        console.log(data);
-        if (data.state === "running") {
-          document.getElementById("lobby").classList.remove("active");
-          document.getElementById("game").classList.add("active");
-        }
-      });
-
-      console.log(document.cookie);
-
-      socket.on("admin", () => {
-        document.getElementById("admin").style.display = "block";
-      });
-
-      socket.on("waiting", (data) => {
-        console.log("WAITING" + data);
-      });
-
-      socket.on("redirect", (destination) => {
-        window.location.href = destination;
-      });
-
-      socket.on("destroy", leave);
-
-      socket.on("continue", () => {
-        console.log("CONTINUE GAME");
-      });
-
-      socket.on("players_update", (data) => {
-        document.getElementById("pin").innerText = data.pin;
-        const ul = document.getElementById("playersList");
-        ul.innerHTML = "";
-        for (const player of data.playersList) {
-          ul.innerHTML += `<li>${player}</li>`;
-        }
-      });
+      const countdown = (time) => {
+        const el = document.getElementById("countdown");
+        el.style.display = "block";
+        let sec = time / 1000;
+        const intFunction = () => {
+          el.innerHTML = String(sec);
+          sec--;
+          if (sec === -1) {
+            clearInterval(interval);
+            el.style.display = "none";
+          }
+        };
+        intFunction();
+        const interval = setInterval(intFunction, 1000);
+      };
     </script>
+    <script src="socketEvents.js" type="text/javascript"></script>
   </body>
 </html>
