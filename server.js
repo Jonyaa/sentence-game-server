@@ -1,5 +1,8 @@
 const express = require("express");
 
+// DELETE, ONLY FOR DEVELOPMENT
+const cors = require("cors");
+
 const http = require("http");
 const { Server } = require("socket.io");
 const Controller = require("./Controller.js");
@@ -11,12 +14,25 @@ const cookieParse = require("cookie");
 
 const PORT = process.env.PORT || 8080;
 
+// DELETE, ONLY FOR DEVELOPMENT
 const app = express();
 
+app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+
 const httpServer = http.createServer(app); // Initializing http server
-const io = new Server(httpServer); // Initializing WSS
+// const io = new Server(httpServer); // Initializing WSS
+
+// DELETE, ONLY FOR DEVELOPMENT
+const io = new Server(httpServer, {
+  cors: {
+    origin: "http://localhost:3000",
+    credentials: true
+  }
+})
 
 const PIN = 1234;
+
+
 
 const controller = new Controller();
 
