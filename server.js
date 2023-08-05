@@ -66,8 +66,8 @@ app.post("/connect", (req, res) => {
     return;
   }
 
-  res.cookie("pin", pin, { maxAge: 99999, httpOnly: true });
-  res.cookie("uid", uid, { maxAge: 99999, httpOnly: true });
+  res.cookie("pin", pin, { maxAge: 99999, httpOnly: false });
+  res.cookie("uid", uid, { maxAge: 99999, httpOnly: false });
 
   // res.sendStatus(200);
   res.status(200).redirect("/lobby");

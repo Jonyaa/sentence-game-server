@@ -166,11 +166,7 @@ class GameRoom {
 
   startInputStage = () => {
     const START_TIMEOUT = 1000;
-    this.roomSocket.emit("starting input soon", START_TIMEOUT);
-    this.state = "running";
-    setTimeout(() => {
-      this.roomSocket.emit("start input");
-    }, START_TIMEOUT);
+    this.roomSocket.emit("start input in", START_TIMEOUT);
   };
 
   playerInputted = () => {
@@ -191,7 +187,7 @@ class GameRoom {
     const START_TIMEOUT = 1000;
     this.produceGame();
     this.roomSocket.emit("start game soon", {
-      time: START_TIMEOUT,
+      timeout: START_TIMEOUT,
       data: this.gameData,
     });
     setTimeout(() => {
@@ -262,7 +258,7 @@ class Controller {
 
   destroyRoom = (pin) => {
     console.log(`destroying room ${pin}`);
-    this.rooms[pin].roomSocket.emit("destroy");
+    this.rooms[pin].roomSocket.emit("redirect", "/");
     delete this.rooms[pin];
   };
 

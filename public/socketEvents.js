@@ -12,15 +12,15 @@ socket.on("starting input soon", (time) => {
   countdown(time);
 });
 
-socket.on("start input", () => {
+socket.on("start input in", () => {
   document.getElementById("lobby").classList.remove("active");
   document.getElementById("game").classList.add("active");
 });
 
-socket.on("start game soon", ({ time, data }) => {
+socket.on("start game", ({ time, data }) => {
   gameData = data;
   console.log("starting game soon");
-  countdown(time);
+  // countdown(time);
 });
 
 socket.on("next turn", (turn) => {
