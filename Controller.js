@@ -165,6 +165,7 @@ class GameRoom {
   };
 
   startInputStage = () => {
+    this.state = "running";
     const START_TIMEOUT = 1000;
     this.roomSocket.emit("start input in", START_TIMEOUT);
   };
@@ -207,7 +208,7 @@ class GameRoom {
 
   endGame = () => {
     this.state = "ended";
-    this.roomSocket.emit("end game");
+    this.roomSocket.emit("next turn", "end game");
   };
 }
 
