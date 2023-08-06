@@ -60,7 +60,7 @@ class Player {
     this.socket = socket;
     this.registerSocketMethods();
     this.state = "ready";
-    socket.emit("reconnect", { state: this.room.state, data: this.gameData });
+    socket.emit("reconnect", { turn: this.room.turn, data: this.room.gameData });
     clearTimeout(this.disconnection_timeout);
   };
 
@@ -166,6 +166,8 @@ class GameRoom {
 
   startInputStage = () => {
     this.state = "running";
+    //Needs to be fixed turn/ stage/state can be simplified  
+    this.turn = "input"
     const START_TIMEOUT = 1000;
     this.roomSocket.emit("start input in", START_TIMEOUT);
   };
@@ -191,24 +193,26 @@ class GameRoom {
       timeout: START_TIMEOUT,
       data: this.gameData,
     });
-    setTimeout(() => {
-      this.turn = 0;
-      this.nextTurn();
-    }, START_TIMEOUT);
+    this.turn = 0;
+    //Client does this
+    // setTimeout(() => {
+    //   this.turn = 0;
+    //   this.nextTurn();
+    // }, START_TIMEOUT);
   };
 
   nextTurn = () => {
-    if (this.turn === Object.keys(this.players).length) {
+    if (this.turn === Object.keys(this.players).length-1) {
       this.endGame();
     } else {
-      this.roomSocket.emit("next turn", this.turn);
       this.turn++;
+      this.roomSocket.emit("next turn", this.turn);
     }
   };
 
   endGame = () => {
     this.state = "ended";
-    this.roomSocket.emit("next turn", "end game");
+    this.roomSocket.emit("next turn", "endGame");
   };
 }
 

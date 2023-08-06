@@ -86,8 +86,8 @@ app.post("/create-room", (req, res) => {
     return;
   }
 
-  res.cookie("uid", name, { maxAge: 99999, httpOnly: true });
-  res.cookie("pin", pin, { maxAge: 99999, httpOnly: true });
+  res.cookie("uid", name, { maxAge: 99999, httpOnly: false });
+  res.cookie("pin", pin, { maxAge: 99999, httpOnly: false });
   res.status(200).redirect("/lobby");
 });
 
